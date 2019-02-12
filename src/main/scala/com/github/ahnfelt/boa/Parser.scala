@@ -55,7 +55,7 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
             val block = parseBlock()
             val types = parameters.map(_.parameterType) :+ returnType
             val arguments = parameters.map(p => EVariable(p.at, p.name))
-            List(STerm(ECall(block.at, None, "call", Some(types), arguments, None)))
+            List(STerm(ECall(block.at, None, "call", Some(types), block :: arguments, None)))
         } else {
             skip(KCurlyLeft)
             if(ahead(KSemicolon)) skip(KSemicolon)
