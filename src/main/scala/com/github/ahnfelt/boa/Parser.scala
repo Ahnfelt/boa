@@ -50,10 +50,19 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
         val (parameters, rest) =
             many(KRoundLeft, KRoundRight, KDotDot, Some(KComma), false) { parseParameter() }
         val returnType = parseType()
-        skip(KCurlyLeft)
-        if(ahead(KSemicolon)) skip(KSemicolon)
-        val body = parseBody()
-        skip(KCurlyRight)
+
+        val body = if(ahead(KCurlyLeft, KPipe) || ahead(KCurlyLeft, KSemicolon, KPipe)) {
+            val block = parseBlock()
+            val types = parameters.map(_.parameterType) :+ returnType
+            val arguments = parameters.map(p => EVariable(p.at, p.name))
+            List(STerm(ECall(block.at, None, "call", Some(types), arguments, None)))
+        } else {
+            skip(KCurlyLeft)
+            if(ahead(KSemicolon)) skip(KSemicolon)
+            val b = parseBody()
+            skip(KCurlyRight)
+            b
+        }
 
         Method(at, static, name, public, typeParameters, parameters, rest, returnType, body)
     }

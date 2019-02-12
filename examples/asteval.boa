@@ -4,7 +4,6 @@
   subtract(left Term, right Term)
 
 #public eval(term Term) Int:
-  switch(term):
-    |value(v)| v
-    |add(x, y)| eval(x) + eval(y)
-    |subtract(x, y)| x.eval - y.eval
+  |value(v)| v
+  |add(x, y)| eval(x) + eval(y)
+  |subtract(x, y)| x.eval - y.eval
