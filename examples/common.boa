@@ -1,0 +1,16 @@
+#public Void()
+
+#public Bool:
+  false()
+  true()
+
+#public Maybe[T]:
+  none()
+  some(value T)
+
+#public List[T]:
+  empty()
+  link(head T, tail List[T])
+
+#public Pair[K, V](key K, value V)
+
