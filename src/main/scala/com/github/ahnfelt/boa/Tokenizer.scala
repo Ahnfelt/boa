@@ -146,6 +146,7 @@ object Tokenizer {
                     if(size == 2 && code(from) == '<' && code(from + 1) == '-') KArrowLeft
                     else if(size == 2 && code(from) == ':' && code(from + 1) == ':') KColonColon
                     else if(size == 2 && code(from) == ':' && code(from + 1) == '=') KColonEqual
+                    else if(size == 2 && code(from) == '.' && code(from + 1) == '=') KDotEqual
                     else if(size == 2 && code(from) == '+' && code(from + 1) == '=') KPlusEqual
                     else if(size == 2 && code(from) == '-' && code(from + 1) == '=') KMinusEqual
                     else if(size == 2 && code(from) == '.' && code(from + 1) == '.') KDotDot
@@ -268,6 +269,7 @@ object Tokenizer {
     case object KEqual extends TokenKind
     case object KPlusEqual extends TokenKind
     case object KMinusEqual extends TokenKind
+    case object KDotEqual extends TokenKind
     case object KColonEqual extends TokenKind
     case object KColonColon extends TokenKind
     case object KString extends TokenKind

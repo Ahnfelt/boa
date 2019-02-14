@@ -131,17 +131,27 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
                 val body = parseBody()
                 val block = EBlock(at, List(Case(List(PVariable(token.at, Some(token.value))), None, body)))
                 result ::= STerm(ECall(at, None, "flatMap", None, List(value, block), None))
-            } else if(ahead(KLower, KColonEqual) || ahead(KLower, KPlusEqual) || ahead(KLower, KMinusEqual)) {
-                val token = skip(KLower)
-                val increment =
-                    if(ahead(KPlusEqual)) { skip(KPlusEqual); Some(true) }
-                    else if(ahead(KMinusEqual)) { skip(KMinusEqual); Some(false) }
-                    else { skip(KColonEqual); None }
-                val value = parseTerm()
+            } else if(
+                ahead(KLower, KColonEqual) ||
+                ahead(KLower, KDotEqual) ||
+                ahead(KLower, KPlusEqual) ||
+                ahead(KLower, KMinusEqual)
+            ) {
+                val name = skip(KLower).value
+                val (token, increment) =
+                    if(ahead(KDotEqual)) skip(KDotEqual) -> None
+                    else if(ahead(KPlusEqual)) skip(KPlusEqual) -> Some(true)
+                    else if(ahead(KMinusEqual)) skip(KMinusEqual) -> Some(false)
+                    else skip(KColonEqual) -> None
+                val value = if(token.kind != KDotEqual) parseTerm() else {
+                    val m = skip(KLower)
+                    val (typeArguments, arguments, rest) = parseArguments()
+                    ECall(m.at, None, m.value, typeArguments, EVariable(token.at, name) :: arguments, rest)
+                }
                 val modified = increment.map { i =>
-                    ECall(token.at, None, if(i) "+" else "-", None, List(EVariable(token.at, token.value)), None )
+                    ECall(token.at, None, if(i) "+" else "-", None, List(EVariable(token.at, name)), None )
                 }.getOrElse(value)
-                result ::= SAssign(token.at, token.value, modified)
+                result ::= SAssign(token.at, name, modified)
             } else if(ahead("#import")) {
                 result ::= SImport(parseImport())
             } else if(ahead("#local") && ahead(KKeyword, KLower)) {
