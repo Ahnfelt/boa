@@ -73,7 +73,7 @@ object Syntax {
         rest : Option[Term]
     ) extends Term
 
-    case class Case(pattern : List[Pattern], body : List[Statement])
+    case class Case(pattern : List[Pattern], condition : Option[Term], body : List[Statement])
 
     sealed abstract class Pattern extends Located
     case class PVariable(at : At, name : Option[String]) extends Pattern

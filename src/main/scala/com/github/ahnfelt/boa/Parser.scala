@@ -129,7 +129,7 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
                 val value = parseTerm()
                 skip(KSemicolon)
                 val body = parseBody()
-                val block = EBlock(at, List(Case(List(PVariable(token.at, Some(token.value))), body)))
+                val block = EBlock(at, List(Case(List(PVariable(token.at, Some(token.value))), None, body)))
                 result ::= STerm(ECall(at, None, "flatMap", None, List(value, block), None))
             } else if(ahead(KLower, KColonEqual) || ahead(KLower, KPlusEqual) || ahead(KLower, KMinusEqual)) {
                 val token = skip(KLower)
@@ -255,29 +255,42 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
     def parseBlock() : Term = {
         val at = skip(KCurlyLeft).at
         if(ahead(KSemicolon)) skip(KSemicolon)
-        val (firstPatterns, None) = if(!ahead(KPipe)) List() -> None else
-            many(KPipe, KPipe, KPipe, Some(KComma), false) { parsePatten() }
-        if(firstPatterns.nonEmpty && ahead(KSemicolon)) skip(KSemicolon)
-        val firstBody = parseBody()
-        var cases = List(Case(firstPatterns, firstBody))
-        if(ahead(KSemicolon)) skip(KSemicolon)
-        while(ahead(KPipe)) {
-            val (patterns, None) = many(KPipe, KPipe, KPipe, Some(KComma), false) { parsePatten() }
-            val body = parseBody()
-            cases ::= Case(patterns, body)
+        var cases = if(!ahead(KPipe)) List() else List(parseCase())
+        if(cases.isEmpty) {
+            cases ::= Case(List(), None, parseBody())
+        } else {
+            while(ahead(KPipe)) cases ::= parseCase()
         }
         skip(KCurlyRight)
         EBlock(at, cases.reverse)
     }
 
-    def parsePatten() : Pattern = {
+    def parseCase() : Case = {
+        skip(KPipe)
+        var patterns = List[Pattern]()
+        while(!ahead(KPipe) && !ahead(KCurlyLeft)) {
+            patterns ::= parsePattern()
+            if(ahead(KComma)) skip(KComma)
+        }
+        val condition = if(ahead(KCurlyLeft)) {
+            skip(KCurlyLeft)
+            val term = parseTerm()
+            skip(KCurlyRight)
+            Some(term)
+        } else None
+        skip(KPipe)
+        val body = parseBody()
+        Case(patterns.reverse, condition, body)
+    }
+
+    def parsePattern() : Pattern = {
         if(ahead(KUpper)) {
             val token = skip(KUpper)
-            val (patterns, rest) = many(KRoundLeft, KRoundRight, KDotDot, Some(KComma), false) { parsePatten() }
+            val (patterns, rest) = many(KRoundLeft, KRoundRight, KDotDot, Some(KComma), false) { parsePattern() }
             PConstructor(token.at, "of", patterns, rest)
         } else if(ahead(KLower, KRoundLeft)) {
             val token = skip(KLower)
-            val (patterns, rest) = many(KRoundLeft, KRoundRight, KDotDot, Some(KComma), false) { parsePatten() }
+            val (patterns, rest) = many(KRoundLeft, KRoundRight, KDotDot, Some(KComma), false) { parsePattern() }
             PConstructor(token.at, token.value, patterns, rest)
         } else if(ahead(KLower)) {
             val token = skip(KLower)
