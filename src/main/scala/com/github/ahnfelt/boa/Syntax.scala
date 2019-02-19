@@ -18,6 +18,7 @@ object Syntax {
         at : At,
         publicType : Boolean,
         publicConstructors : Boolean,
+        url : String,
         name : String,
         typeParameters : List[String],
         constructors : List[TypeConstructor]
@@ -31,26 +32,31 @@ object Syntax {
     )
 
     case class Method(
+        header : MethodHeader,
+        body : List[Statement]
+    )
+
+    case class MethodHeader(
         at : At,
         static : Option[String],
+        url : String,
         name : String,
         public : Boolean,
         typeParameters : List[String],
         parameters : List[Parameter],
         rest : Option[Parameter],
         returnType : Type,
-        body : List[Statement]
     )
 
     case class Constraint(at : At, typeClass : String, typeArguments : List[Type])
 
     case class Parameter(at : At, name : String, parameterType : Type)
 
-    case class Type(at : At, name : String, typeArguments : List[Type])
+    case class Type(at : At, url : String, name : String, typeArguments : List[Type])
 
     sealed abstract class Statement extends Located
     case class SImport(importStatement : Import) extends Statement { def at = importStatement.at }
-    case class SMethod(method : Method) extends Statement { def at = method.at }
+    case class SMethod(method : Method) extends Statement { def at = method.header.at }
     case class STypeDefinition(definition : TypeDefinition) extends Statement { def at = definition.at }
     case class SLet(at : At, name : String, mutable : Boolean, value : Term) extends Statement
     case class SAssign(at : At, name : String, value : Term) extends Statement
@@ -66,6 +72,8 @@ object Syntax {
     case class EBlock(at : At, cases : List[Case]) extends Term
     case class ECall(
         at : At,
+        overloads : List[MethodHeader],
+        url : String,
         static : Option[String],
         name : String,
         typeArguments : Option[List[Type]],
@@ -73,7 +81,7 @@ object Syntax {
         rest : Option[Term]
     ) extends Term
 
-    case class Case(pattern : List[Pattern], condition : Option[Term], body : List[Statement])
+    case class Case(patterns : List[Pattern], condition : Option[Term], body : List[Statement])
 
     sealed abstract class Pattern extends Located
     case class PVariable(at : At, name : Option[String]) extends Pattern
@@ -82,5 +90,6 @@ object Syntax {
     case class PFloat(at : At, value : String) extends Pattern
     case class PString(at : At, value : String) extends Pattern
     case class PConstructor(at : At, name : String, patterns : List[Pattern], rest : Option[Pattern]) extends Pattern
+    case class PConstructorFields(at : At, name : String, variable : Option[String]) extends Pattern
 
 }

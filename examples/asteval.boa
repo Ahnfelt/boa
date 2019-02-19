@@ -1,3 +1,5 @@
+#import "examples/common.boa"
+
 #protected Term:
   value(number Int)
   add(left Term, right Term)

@@ -2,7 +2,7 @@
   #mutable low = 0, high = array.size
   while{low < high}:
     mid = (low + high) / 2
-    if(array.at(mid) < value):
+    if(array.pry(mid) < value):
       low := mid + 1
     else:
       high := mid

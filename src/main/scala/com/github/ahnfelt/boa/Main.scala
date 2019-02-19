@@ -4,11 +4,7 @@ import scala.io.Source
 
 object Main {
     def main(arguments : Array[String]) : Unit = {
-        val code = Source.fromFile(arguments(0), "UTF-8").mkString
-        val tokens = Tokenizer.tokenize(code)
-        println(tokens.map(t => t.kind + "\t" + code.substring(t.from, t.to)).mkString("\n"))
-        println()
-        val syntax = new Parser(tokens).parseFile()
-        print(syntax)
+        val boaFile = new Importer().parseAndImport(arguments(0))
+        println(boaFile)
     }
 }

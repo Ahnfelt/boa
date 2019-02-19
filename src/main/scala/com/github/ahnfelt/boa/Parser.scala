@@ -32,7 +32,7 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
     def parseImport() : Import = {
         val at = skip("#import").at
         val name = if(ahead(KUpper)) Some(skip(KUpper).value) else None
-        val url = skip(KString).value
+        val url = decodeString(skip(KString).value)
         Import(at, name, url)
     }
 
@@ -55,7 +55,7 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
             val block = parseBlock()
             val types = parameters.map(_.parameterType) :+ returnType
             val arguments = parameters.map(p => EVariable(p.at, p.name))
-            List(STerm(ECall(block.at, None, "call", Some(types), block :: arguments, None)))
+            List(STerm(ECall(block.at, List(), "", None, "call", Some(types), block :: arguments, None)))
         } else {
             skip(KCurlyLeft)
             if(ahead(KSemicolon)) skip(KSemicolon)
@@ -64,7 +64,7 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
             b
         }
 
-        Method(at, static, name, public, typeParameters, parameters, rest, returnType, body)
+        Method(MethodHeader(at, static, "", name, public, typeParameters, parameters, rest, returnType), body)
     }
 
     def parseTypeDefinition(local : Boolean) : TypeDefinition = {
@@ -83,7 +83,7 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
                     many(KRoundLeft, KRoundRight, KDotDot, Some(KComma), false) { parseParameter() }
                 List(TypeConstructor(token.at, "of", parameters, rest)) -> None
             } else many(KCurlyLeft, KCurlyRight, KCurlyRight, Some(KSemicolon), true) { parseTypeConstructor() }
-        TypeDefinition(at, publicType, publicConstructors, name, typeParameters, constructors)
+        TypeDefinition(at, publicType, publicConstructors, "", name, typeParameters, constructors)
     }
 
     def parseTypeConstructor() : TypeConstructor = {
@@ -103,7 +103,7 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
         val token = skip(KUpper)
         val (typeArguments, None) = if(!ahead(KSquareLeft)) List() -> None else
             many(KSquareLeft, KSquareRight, KDotDot, Some(KComma), false) { parseType() }
-        Type(token.at, token.value, typeArguments)
+        Type(token.at, "", token.value, typeArguments)
     }
 
     def parseBody() : List[Statement] = {
@@ -130,7 +130,7 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
                 skip(KSemicolon)
                 val body = parseBody()
                 val block = EBlock(at, List(Case(List(PVariable(token.at, Some(token.value))), None, body)))
-                result ::= STerm(ECall(at, None, "flatMap", None, List(value, block), None))
+                result ::= STerm(ECall(at, List(), "", None, "flatMap", None, List(value, block), None))
             } else if(
                 ahead(KLower, KColonEqual) ||
                 ahead(KLower, KDotEqual) ||
@@ -146,10 +146,10 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
                 val value = if(token.kind != KDotEqual) parseTerm() else {
                     val m = skip(KLower)
                     val (typeArguments, arguments, rest) = parseArguments()
-                    ECall(m.at, None, m.value, typeArguments, EVariable(token.at, name) :: arguments, rest)
+                    ECall(m.at, List(), "", None, m.value, typeArguments, EVariable(token.at, name) :: arguments, rest)
                 }
                 val modified = increment.map { i =>
-                    ECall(token.at, None, if(i) "+" else "-", None, List(EVariable(token.at, name)), None )
+                    ECall(token.at, List(), "", None, if(i) "+" else "-", None, List(EVariable(token.at, name)), None )
                 }.getOrElse(value)
                 result ::= SAssign(token.at, name, modified)
             } else if(ahead("#import")) {
@@ -174,7 +174,7 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
             if(ahead(KSemicolon)) skip(KSemicolon)
             val token = skip(KLower)
             val block = parseBlock()
-            result = ECall(token.at, None, token.value, None, List(result, block), None)
+            result = ECall(token.at, List(), "", None, token.value, None, List(result, block), None)
         }
         result
     }
@@ -184,7 +184,7 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
         while(ahead(KOperator)) {
             val token = skip(KOperator)
             val right = parseUnary()
-            result = ECall(token.at, None, token.value, None, List(result, right), None)
+            result = ECall(token.at, List(), "", None, token.value, None, List(result, right), None)
         }
         result
     }
@@ -193,7 +193,7 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
         if(ahead(KOperator)) {
             val token = skip(KOperator)
             val term = parseUnary()
-            ECall(token.at, None, token.value, None, List(term), None)
+            ECall(token.at, List(), "", None, token.value, None, List(term), None)
         } else {
             parseMethod()
         }
@@ -206,7 +206,7 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
             if(ahead(KDot)) skip(KDot)
             val token = skip(KLower)
             val (typeArguments, arguments, rest) = parseArguments()
-            result = ECall(token.at, None, token.value, typeArguments, result :: arguments, rest)
+            result = ECall(token.at, List(), "", None, token.value, typeArguments, result :: arguments, rest)
         }
         result
     }
@@ -217,17 +217,17 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
         if(upperCall) {
             val token = skip(KUpper)
             val (typeArguments, arguments, rest) = parseArguments()
-            ECall(token.at, Some(token.value), "of", typeArguments, arguments, rest)
+            ECall(token.at, List(), "", Some(token.value), "of", typeArguments, arguments, rest)
         } else if(lowerCall) {
             val token = skip(KLower)
             val (typeArguments, arguments, rest) = parseArguments()
-            ECall(token.at, None, token.value, typeArguments, arguments, rest)
+            ECall(token.at, List(), "", None, token.value, typeArguments, arguments, rest)
         } else if(ahead(KUpper, KDot)) {
             val static = Some(skip(KUpper).value)
             val at = skip(KDot).at
             val name = skip(KLower).value
             val (typeArguments, arguments, rest) = parseArguments()
-            ECall(at, static, name, typeArguments, arguments, rest)
+            ECall(at, List(), "", static, name, typeArguments, arguments, rest)
         } else if(ahead(KLower)) {
             val token = skip(KLower)
             EVariable(token.at, token.value)
@@ -294,10 +294,14 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
     }
 
     def parsePattern() : Pattern = {
-        if(ahead(KUpper)) {
-            val token = skip(KUpper)
-            val (patterns, rest) = many(KRoundLeft, KRoundRight, KDotDot, Some(KComma), false) { parsePattern() }
-            PConstructor(token.at, "of", patterns, rest)
+        if(ahead(KLower, KRoundLeft, KCurlyLeft)) {
+            val token = skip(KLower)
+            skip(KRoundLeft)
+            skip(KCurlyLeft)
+            val variable = if(ahead(KLower)) Some(skip(KLower).value) else { skip(KUnderscore); None }
+            skip(KCurlyRight)
+            skip(KRoundRight)
+            PConstructorFields(token.at, token.value, variable)
         } else if(ahead(KLower, KRoundLeft)) {
             val token = skip(KLower)
             val (patterns, rest) = many(KRoundLeft, KRoundRight, KDotDot, Some(KComma), false) { parsePattern() }
@@ -401,6 +405,10 @@ abstract class AbstractParser(tokens : Array[Token]) {
         skip(end)
         if(rest) result.drop(1).reverse -> result.headOption
         else result.reverse -> None
+    }
+
+    protected def decodeString(text : String) = {
+        text.drop(1).dropRight(1)
     }
 
 }

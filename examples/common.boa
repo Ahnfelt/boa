@@ -14,3 +14,7 @@
 
 #public Pair[K, V](key K, value V)
 
+# Pseudo types for testing
+#public Int()
+#public Float()
+#public String()
