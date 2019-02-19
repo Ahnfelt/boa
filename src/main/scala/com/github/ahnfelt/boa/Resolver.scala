@@ -121,6 +121,9 @@ class Resolver(fullUrl : String, imports : Map[String, BoaFile]) {
                 )))
             case call@ECall(at, overloads, url, static, name, typeArguments, arguments, rest) =>
                 val overloads = symbols.methods.filter(_.name == name).filter(_.static == static)
+                if(overloads.isEmpty) {
+                    throw new RuntimeException("Unknown method: " + static.map(_ + ".").getOrElse("") + name)
+                }
                 call.copy(
                     overloads = overloads,
                     typeArguments = typeArguments.map(_.map(resolveType(_, symbols))),
