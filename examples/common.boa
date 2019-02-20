@@ -1,4 +1,6 @@
-#public Void()
+#public Never:
+
+#public Unit()
 
 #public Bool:
   false()
@@ -14,12 +16,17 @@
 
 #public Pair[K, V](key K, value V)
 
-# Pseudo types for testing
-#public Int()
-#public Float()
-#public String()
-#public Block[I, O]()
+# Placeholder types for testing
+#public Int:
+#public Float:
+#public String:
+#public Block0[R]:
+#public Block1[A1, R]:
+#public Block2[A1, A2, R]:
 
-#public call[I, O](block Block[I, O], in I) O:
 #public +(left Int, right Int) Int:
 #public -(left Int, right Int) Int:
+
+#public call[R](block Block0[R]) R:
+#public call[A1, R](block Block1[A1, R], argument1 A1) R:
+#public call[A1, A2, R](block Block2[A1, A2, R], argument1 A1, argument2 A2) R:

@@ -120,9 +120,16 @@ class Resolver(fullUrl : String, imports : Map[String, BoaFile]) {
                     body = resolveBody(c.body, symbols)
                 )))
             case call@ECall(at, overloads, url, static, name, typeArguments, arguments, rest) =>
-                val overloads = symbols.methods.filter(_.name == name).filter(_.static == static)
-                if(overloads.isEmpty) {
+                val allOverloads = symbols.methods.filter(_.name == name).filter(_.static == static)
+                if(allOverloads.isEmpty) {
                     throw new RuntimeException("Unknown method: " + static.map(_ + ".").getOrElse("") + name)
+                }
+                val overloads = allOverloads.filter(o =>
+                    o.parameters.size == arguments.size ||
+                    (o.rest.nonEmpty && o.parameters.size <= arguments.size)
+                ).filter(o => rest.isEmpty || o.rest.nonEmpty)
+                if(overloads.isEmpty) {
+                    throw new RuntimeException("Wrong number of arguments: " + static.map(_ + ".").getOrElse("") + name)
                 }
                 call.copy(
                     overloads = overloads,
