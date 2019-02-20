@@ -20,9 +20,20 @@
 #public Int:
 #public Float:
 #public String:
+#public Array[T]:
 #public Block0[R]:
 #public Block1[A1, R]:
 #public Block2[A1, A2, R]:
+
+#public size[T](array Array[T]) Int:
+#public at[T](array Array[T], index Int) Maybe[T]:
+#public pry[T](array Array[T], index Int) T:
+#public pryHead[T](array Array[T]) T:
+#public pryTail[T](array Array[T]) Array[T]:
+#public head[T](array Array[T]) Maybe[T]:
+#public tail[T](array Array[T]) Maybe[Array[T]]:
+
+#public pry[T](maybe Maybe[T]) T:
 
 #public +(left Int, right Int) Int:
 #public -(left Int, right Int) Int:

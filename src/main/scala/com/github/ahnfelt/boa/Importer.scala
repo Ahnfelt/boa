@@ -9,10 +9,10 @@ class Importer() {
 
     val cache = mutable.HashMap[String, BoaFile]()
 
-    def parseAndImport(url : String) : BoaFile = {
+    def importAndProcess(url : String) : BoaFile = {
         cache.getOrElseUpdate(url, {
             val boaFile = tokenizeAndParse(url, printTokensAndSyntax = false)
-            val imported = boaFile.imports.map(i => i.url -> parseAndImport(i.url)).toMap
+            val imported = boaFile.imports.map(i => i.url -> importAndProcess(i.url)).toMap
             new Resolver(url, imported).resolveFile(boaFile)
         })
     }
