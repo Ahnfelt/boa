@@ -283,10 +283,10 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
             EString(token.at, token.value)
         } else if(ahead(KInt)) {
             val token = skip(KInt)
-            EString(token.at, token.value)
+            EInt(token.at, token.value)
         } else if(ahead(KFloat)) {
             val token = skip(KFloat)
-            EString(token.at, token.value)
+            EFloat(token.at, token.value)
         } else if(ahead(KRoundLeft)) {
             skip(KRoundLeft)
             val term = parseTerm()
