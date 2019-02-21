@@ -15,7 +15,12 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
                 if(ahead(KKeyword, KLower) || ahead(KKeyword, KOperator) || ahead(KKeyword, KUpper, KDot)) {
                     boaFile = boaFile.copy(methods = parseMethod(false) :: boaFile.methods)
                 } else {
-                    boaFile = boaFile.copy(typeDefinitions = parseTypeDefinition(false) :: boaFile.typeDefinitions)
+                    val typeDefinition = parseTypeDefinition(false)
+                    val methods = methodsForTypeDefinition(typeDefinition)
+                    boaFile = boaFile.copy(
+                        methods = methods.reverse ++ boaFile.methods,
+                        typeDefinitions = typeDefinition :: boaFile.typeDefinitions
+                    )
                 }
             } else {
                 unexpected()
@@ -27,6 +32,45 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
             typeDefinitions = boaFile.typeDefinitions.reverse,
             methods = boaFile.methods.reverse
         )
+    }
+
+    private def methodsForTypeDefinition(typeDefinition : TypeDefinition) : List[Method] = {
+        val typeArguments = typeDefinition.typeParameters.map(Type(typeDefinition.at, "", _, List()))
+        val theType = Type(typeDefinition.at, "", typeDefinition.name, typeArguments)
+        val constructors = typeDefinition.constructors.map(c => Method(
+            header = MethodHeader(
+                at = c.at,
+                static = Some(typeDefinition.name),
+                url = "",
+                public = typeDefinition.publicConstructors,
+                name = c.name,
+                typeParameters = typeDefinition.typeParameters,
+                parameters = c.parameters,
+                rest = c.rest,
+                returnType = theType
+            ),
+            body = List(SProvided(c.at))
+        ))
+        val fields = typeDefinition.constructors match {
+            case List(c) =>
+                val rest = c.rest.map(r => r.copy(parameterType = Type(r.at, ":core", "Array", List(r.parameterType))))
+                (c.parameters ++ rest.toList).map(p => Method(
+                    header = MethodHeader(
+                        at = p.at,
+                        static = None,
+                        url = "",
+                        public = typeDefinition.publicConstructors,
+                        name = p.name,
+                        typeParameters = typeDefinition.typeParameters,
+                        parameters = List(Parameter(p.at, "this", theType)),
+                        rest = None,
+                        returnType = p.parameterType
+                    ),
+                    body = List(SProvided(p.at))
+                ))
+            case _ => List()
+        }
+        constructors ++ fields
     }
 
     def parseImport() : Import = {
@@ -157,7 +201,10 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
             } else if(ahead("#local") && ahead(KKeyword, KLower)) {
                 result ::= SMethod(parseMethod(true))
             } else if(ahead("#local") && ahead(KKeyword, KUpper)) {
-                result ::= STypeDefinition(parseTypeDefinition(true))
+                val typeDefinition = parseTypeDefinition(true)
+                val methods = methodsForTypeDefinition(typeDefinition)
+                result ::= STypeDefinition(typeDefinition)
+                for(m <- methods) result ::= SMethod(m)
             } else {
                 result ::= STerm(parseTerm())
             }
