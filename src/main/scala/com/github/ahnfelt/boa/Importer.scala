@@ -9,24 +9,24 @@ class Importer() {
 
     val cache = mutable.HashMap[String, BoaFile]()
 
-    def importAndProcess(url : String) : BoaFile = {
+    def importAndProcess(url : String, flags : Set[String]) : BoaFile = {
         cache.getOrElseUpdate(url, {
-            val boaFile = tokenizeAndParse(url, printTokensAndSyntax = false)
-            val imported = boaFile.imports.map(i => i.url -> importAndProcess(i.url)).toMap
+            val boaFile = tokenizeAndParse(url, printTokensAndSyntax = false, flags)
+            val imported = boaFile.imports.map(i => i.url -> importAndProcess(i.url, flags)).toMap
             val resolved = new Resolver(url, imported).resolveFile(boaFile)
             val checked = new Checker(imported).checkFile(resolved)
             checked
         })
     }
 
-    def tokenizeAndParse(sourceFile : String, printTokensAndSyntax : Boolean) : BoaFile = {
+    def tokenizeAndParse(sourceFile : String, printTokensAndSyntax : Boolean, flags : Set[String]) : BoaFile = {
         val code = Source.fromFile(sourceFile, "UTF-8").mkString
         val tokens = Tokenizer.tokenize(code)
         if(printTokensAndSyntax) {
             println(tokens.map(t => t.kind + "\t" + code.substring(t.from, t.to)).mkString("\n"))
             println()
         }
-        val boaFile = new Parser(tokens).parseFile()
+        val boaFile = new Parser(tokens, flags).parseFile()
         if(printTokensAndSyntax) {
             println(boaFile)
             println()

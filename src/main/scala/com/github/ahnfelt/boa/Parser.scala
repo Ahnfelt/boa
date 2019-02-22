@@ -3,35 +3,69 @@ package com.github.ahnfelt.boa
 import com.github.ahnfelt.boa.Syntax._
 import com.github.ahnfelt.boa.Tokenizer._
 
-class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
+class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(tokens) {
 
     def parseFile() : BoaFile = {
         var boaFile = BoaFile(List(), List(), List())
-        if(ahead(KSemicolon)) skip(KSemicolon)
-        while(offset < tokens.length) {
-            if(ahead("#import")) {
-                boaFile = boaFile.copy(imports = parseImport() :: boaFile.imports)
-            } else if(ahead("#public") || ahead("#protected") || ahead("#private")) {
-                if(ahead(KKeyword, KLower) || ahead(KKeyword, KOperator) || ahead(KKeyword, KUpper, KDot)) {
-                    boaFile = boaFile.copy(methods = parseMethod(false) :: boaFile.methods)
-                } else {
-                    val typeDefinition = parseTypeDefinition(false)
-                    val methods = methodsForTypeDefinition(typeDefinition)
-                    boaFile = boaFile.copy(
-                        methods = methods.reverse ++ boaFile.methods,
-                        typeDefinitions = typeDefinition :: boaFile.typeDefinitions
-                    )
-                }
-            } else {
-                unexpected()
-            }
+        def parseTop(include : Boolean) : Unit = {
             if(ahead(KSemicolon)) skip(KSemicolon)
+            while(offset < tokens.length) {
+                if(ahead("#import")) {
+                    val parsedImport = parseImport()
+                    if(include) boaFile = boaFile.copy(imports = parsedImport :: boaFile.imports)
+                } else if(ahead("#public") || ahead("#protected") || ahead("#private")) {
+                    if(ahead(KKeyword, KLower) || ahead(KKeyword, KOperator) || ahead(KKeyword, KUpper, KDot)) {
+                        val method = parseMethod(false)
+                        if(include) boaFile = boaFile.copy(methods = method :: boaFile.methods)
+                    } else {
+                        val typeDefinition = parseTypeDefinition(false)
+                        val methods = methodsForTypeDefinition(typeDefinition)
+                        if(include) boaFile = boaFile.copy(
+                            methods = methods.reverse ++ boaFile.methods,
+                            typeDefinitions = typeDefinition :: boaFile.typeDefinitions
+                        )
+                    }
+                } else if(ahead("#if")) {
+                    skip("#if")
+                    var wasTrue = staticCondition(parseTerm())
+                    parseTop(wasTrue)
+                    while(ahead("#elseif")) {
+                        skip("#elseif")
+                        val isTrue = staticCondition(parseTerm()) && !wasTrue
+                        parseTop(isTrue)
+                        if(isTrue) wasTrue = true
+                    }
+                    if(ahead("#else")) {
+                        skip("#else")
+                        parseTop(!wasTrue)
+                    }
+                    skip("#end")
+                } else {
+                    return
+                }
+                if(ahead(KSemicolon)) skip(KSemicolon)
+            }
         }
+        parseTop(true)
+        if(offset < tokens.length) unexpected()
         boaFile.copy(
             imports = boaFile.imports.reverse,
             typeDefinitions = boaFile.typeDefinitions.reverse,
             methods = boaFile.methods.reverse
         )
+    }
+
+    private def staticCondition(term : Term) : Boolean = term match {
+        case EVariable(at, name) =>
+            flags(name)
+        case ECall(_, _, _, None, "not", None, List(e), None) =>
+            !staticCondition(e)
+        case ECall(_, _, _, None, "and", None, List(e1, EBlock(_, List(Case(List(), None, List(STerm(e2)))))), None) =>
+            staticCondition(e1) && staticCondition(e2)
+        case ECall(_, _, _, None, "or", None, List(e1, EBlock(_, List(Case(List(), None, List(STerm(e2)))))), None) =>
+            staticCondition(e1) || staticCondition(e2)
+        case _ =>
+            fail("Expected a static condition: variables, e1 and: e2, e1 or: e2, not(e)")
     }
 
     private def methodsForTypeDefinition(typeDefinition : TypeDefinition) : List[Method] = {
