@@ -18,6 +18,7 @@ object Syntax {
         at : At,
         publicType : Boolean,
         publicConstructors : Boolean,
+        isRecord : Boolean,
         url : String,
         name : String,
         typeParameters : List[String],

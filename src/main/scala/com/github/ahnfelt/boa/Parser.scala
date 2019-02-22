@@ -52,7 +52,7 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
             body = List(SProvided(c.at))
         ))
         val fields = typeDefinition.constructors match {
-            case List(c) =>
+            case List(c) if typeDefinition.isRecord =>
                 val rest = c.rest.map(r => r.copy(parameterType = Type(r.at, ":core", "Array", List(r.parameterType))))
                 (c.parameters ++ rest.toList).map(p => Method(
                     header = MethodHeader(
@@ -120,14 +120,15 @@ class Parser(tokens : Array[Token]) extends AbstractParser(tokens) {
         val name = skip(KUpper).value
         val (typeParameters, None) = if(!ahead(KSquareLeft)) List() -> None else
             many(KSquareLeft, KSquareRight, KDotDot, Some(KComma), false) { skip(KUpper).value }
+        val isRecord = ahead(KRoundLeft)
         val (constructors, None) =
-            if(ahead(KRoundLeft)) {
+            if(isRecord) {
                 val token = tokens(offset)
                 val (parameters, rest) =
                     many(KRoundLeft, KRoundRight, KDotDot, Some(KComma), false) { parseParameter() }
                 List(TypeConstructor(token.at, "of", parameters, rest)) -> None
             } else many(KCurlyLeft, KCurlyRight, KCurlyRight, Some(KSemicolon), true) { parseTypeConstructor() }
-        TypeDefinition(at, publicType, publicConstructors, "", name, typeParameters, constructors)
+        TypeDefinition(at, publicType, publicConstructors, isRecord, "", name, typeParameters, constructors)
     }
 
     def parseTypeConstructor() : TypeConstructor = {
