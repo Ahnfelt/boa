@@ -56,7 +56,7 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
     }
 
     private def staticCondition(term : Term) : Boolean = term match {
-        case EVariable(at, name) =>
+        case EVariable(_, name) =>
             flags(name)
         case ECall(_, _, _, None, "not", None, List(e), None) =>
             !staticCondition(e)
