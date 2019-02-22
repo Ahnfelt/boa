@@ -65,7 +65,7 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
         case ECall(_, _, _, None, "or", None, List(e1, EBlock(_, List(Case(List(), None, List(STerm(e2)))))), None) =>
             staticCondition(e1) || staticCondition(e2)
         case _ =>
-            fail("Expected a static condition: variables, e1 and: e2, e1 or: e2, not(e)")
+            fail("Expected a static condition: e1 and: e2, e1 or: e2, not(e), or a variable")
     }
 
     private def methodsForTypeDefinition(typeDefinition : TypeDefinition) : List[Method] = {
