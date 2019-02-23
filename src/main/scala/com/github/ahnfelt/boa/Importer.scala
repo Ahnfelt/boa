@@ -11,7 +11,7 @@ class Importer() {
 
     def importAndProcess(url : String, flags : Set[String]) : BoaFile = {
         cache.getOrElseUpdate(url, {
-            val boaFile = tokenizeAndParse(url, printTokensAndSyntax = false, flags)
+            val boaFile = tokenizeAndParse(url, printTokensAndSyntax = true, flags)
             val imported = boaFile.imports.map(i => i.url -> importAndProcess(i.url, flags)).toMap
             val resolved = new Resolver(url, imported).resolveFile(boaFile)
             val checked = new Checker(imported).checkFile(resolved)

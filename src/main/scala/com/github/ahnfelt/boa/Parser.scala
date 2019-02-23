@@ -26,20 +26,7 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
                         )
                     }
                 } else if(ahead("#if")) {
-                    skip("#if")
-                    var wasTrue = staticCondition(parseTerm())
-                    parseTop(wasTrue)
-                    while(ahead("#elseif")) {
-                        skip("#elseif")
-                        val isTrue = staticCondition(parseTerm()) && !wasTrue
-                        parseTop(isTrue)
-                        if(isTrue) wasTrue = true
-                    }
-                    if(ahead("#else")) {
-                        skip("#else")
-                        parseTop(!wasTrue)
-                    }
-                    skip("#end")
+                    parseStaticIf(parseTop)
                 } else {
                     return
                 }
@@ -53,6 +40,26 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
             typeDefinitions = boaFile.typeDefinitions.reverse,
             methods = boaFile.methods.reverse
         )
+    }
+
+    private def parseStaticIf(parse : Boolean => Unit) : Unit = {
+        skip("#if")
+        var wasTrue = staticCondition(parseTerm())
+        if(ahead(KSemicolon)) skip(KSemicolon)
+        parse(wasTrue)
+        while(ahead("#elseif")) {
+            skip("#elseif")
+            val isTrue = staticCondition(parseTerm()) && !wasTrue
+            if(ahead(KSemicolon)) skip(KSemicolon)
+            parse(isTrue)
+            if(isTrue) wasTrue = true
+        }
+        if(ahead("#else")) {
+            skip("#else")
+            if(ahead(KSemicolon)) skip(KSemicolon)
+            parse(!wasTrue)
+        }
+        skip("#end")
     }
 
     private def staticCondition(term : Term) : Boolean = term match {
@@ -187,64 +194,78 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
 
     def parseBody() : List[Statement] = {
         var result = List[Statement]()
-        while(!ahead(KCurlyRight) && !ahead(KPipe)) {
-            if(ahead("#mutable") || ahead(KLower, KEqual)) {
-                val mutable = ahead("#mutable")
-                if(mutable) skip("#mutable")
-                val token = skip(KLower)
-                skip(KEqual)
-                val value = parseTerm()
-                result ::= SLet(token.at, token.value, mutable, value)
-                while(ahead(KComma)) {
-                    skip(KComma)
+        def parseStatements(include : Boolean) : Unit = {
+            while(!ahead(KCurlyRight) && !ahead(KPipe)) {
+                if(ahead("#mutable") || ahead(KLower, KEqual)) {
+                    val mutable = ahead("#mutable")
+                    if(mutable) skip("#mutable")
                     val token = skip(KLower)
                     skip(KEqual)
                     val value = parseTerm()
-                    result ::= SLet(token.at, token.value, mutable, value)
+                    if(include) result ::= SLet(token.at, token.value, mutable, value)
+                    while(ahead(KComma)) {
+                        skip(KComma)
+                        val token = skip(KLower)
+                        skip(KEqual)
+                        val value = parseTerm()
+                        if(include) result ::= SLet(token.at, token.value, mutable, value)
+                    }
+                } else if(ahead(KLower, KArrowLeft)) {
+                    val token = skip(KLower)
+                    val at = skip(KArrowLeft).at
+                    val value = parseTerm()
+                    skip(KSemicolon)
+                    val body = parseBody()
+                    val block = EBlock(at, List(Case(List(PVariable(token.at, Some(token.value))), None, body)))
+                    if(include) result ::= STerm(ECall(at, List(), "", None, "flatMap", None, List(value, block), None))
+                } else if(
+                    ahead(KLower, KColonEqual) ||
+                        ahead(KLower, KDotEqual) ||
+                        ahead(KLower, KPlusEqual) ||
+                        ahead(KLower, KMinusEqual)
+                ) {
+                    val name = skip(KLower).value
+                    val (token, increment) =
+                        if(ahead(KDotEqual)) skip(KDotEqual) -> None
+                        else if(ahead(KPlusEqual)) skip(KPlusEqual) -> Some(true)
+                        else if(ahead(KMinusEqual)) skip(KMinusEqual) -> Some(false)
+                        else skip(KColonEqual) -> None
+                    val value = if(token.kind != KDotEqual) parseTerm() else {
+                        val m = skip(KLower)
+                        val (typeArguments, arguments, rest) = parseArguments()
+                        ECall(
+                            m.at, List(), "", None, m.value, typeArguments, EVariable(token.at, name) :: arguments, rest
+                        )
+                    }
+                    val modified = increment.map { i => ECall(
+                        token.at, List(), "", None, if(i) "+" else "-", None, List(EVariable(token.at, name)), None
+                    )}.getOrElse(value)
+                    if(include) result ::= SAssign(token.at, name, modified)
+                } else if(ahead("#import")) {
+                    val importStatement = parseImport()
+                    if(include) result ::= SImport(importStatement)
+                } else if(ahead("#local") && ahead(KKeyword, KLower)) {
+                    val method = parseMethod(true)
+                    if(include) result ::= SMethod(method)
+                } else if(ahead("#local") && ahead(KKeyword, KUpper)) {
+                    val typeDefinition = parseTypeDefinition(true)
+                    val methods = methodsForTypeDefinition(typeDefinition)
+                    if(include) {
+                        result ::= STypeDefinition(typeDefinition)
+                        for(m <- methods) result ::= SMethod(m)
+                    }
+                } else if(ahead("#if")) {
+                    parseStaticIf(parseStatements)
+                } else if(ahead("#elseif") || ahead("#else") || ahead("#end")) {
+                    return
+                } else {
+                    val term = STerm(parseTerm())
+                    if(include) result ::= term
                 }
-            } else if(ahead(KLower, KArrowLeft)) {
-                val token = skip(KLower)
-                val at = skip(KArrowLeft).at
-                val value = parseTerm()
-                skip(KSemicolon)
-                val body = parseBody()
-                val block = EBlock(at, List(Case(List(PVariable(token.at, Some(token.value))), None, body)))
-                result ::= STerm(ECall(at, List(), "", None, "flatMap", None, List(value, block), None))
-            } else if(
-                ahead(KLower, KColonEqual) ||
-                ahead(KLower, KDotEqual) ||
-                ahead(KLower, KPlusEqual) ||
-                ahead(KLower, KMinusEqual)
-            ) {
-                val name = skip(KLower).value
-                val (token, increment) =
-                    if(ahead(KDotEqual)) skip(KDotEqual) -> None
-                    else if(ahead(KPlusEqual)) skip(KPlusEqual) -> Some(true)
-                    else if(ahead(KMinusEqual)) skip(KMinusEqual) -> Some(false)
-                    else skip(KColonEqual) -> None
-                val value = if(token.kind != KDotEqual) parseTerm() else {
-                    val m = skip(KLower)
-                    val (typeArguments, arguments, rest) = parseArguments()
-                    ECall(m.at, List(), "", None, m.value, typeArguments, EVariable(token.at, name) :: arguments, rest)
-                }
-                val modified = increment.map { i =>
-                    ECall(token.at, List(), "", None, if(i) "+" else "-", None, List(EVariable(token.at, name)), None )
-                }.getOrElse(value)
-                result ::= SAssign(token.at, name, modified)
-            } else if(ahead("#import")) {
-                result ::= SImport(parseImport())
-            } else if(ahead("#local") && ahead(KKeyword, KLower)) {
-                result ::= SMethod(parseMethod(true))
-            } else if(ahead("#local") && ahead(KKeyword, KUpper)) {
-                val typeDefinition = parseTypeDefinition(true)
-                val methods = methodsForTypeDefinition(typeDefinition)
-                result ::= STypeDefinition(typeDefinition)
-                for(m <- methods) result ::= SMethod(m)
-            } else {
-                result ::= STerm(parseTerm())
+                if(!ahead(KCurlyRight) && !ahead(KPipe)) skip(KSemicolon)
             }
-            if(!ahead(KCurlyRight) && !ahead(KPipe)) skip(KSemicolon)
         }
+        parseStatements(true)
         result.reverse
     }
 

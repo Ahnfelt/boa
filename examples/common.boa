@@ -37,7 +37,11 @@
 
 #public +(left Int, right Int) Int:
 #public -(left Int, right Int) Int:
+#public <(left Int, right Int) Int:
 
 #public call[R](block Block0[R]) R:
 #public call[A1, R](block Block1[A1, R], argument1 A1) R:
 #public call[A1, A2, R](block Block2[A1, A2, R], argument1 A1, argument2 A2) R:
+
+#public if[T](condition Bool, body Block0[T]) Maybe[T]:
+#public else[T](maybe Maybe[T], body Block0[T]) T:
