@@ -144,6 +144,7 @@ object Tokenizer {
                 val size = offset - from
                 tokens += Token(code, from, offset,
                     if(size == 2 && code(from) == '<' && code(from + 1) == '-') KArrowLeft
+                    else if(size == 2 && code(from) == '-' && code(from + 1) == '>') KArrowRight
                     else if(size == 2 && code(from) == ':' && code(from + 1) == ':') KColonColon
                     else if(size == 2 && code(from) == ':' && code(from + 1) == '=') KColonEqual
                     else if(size == 2 && code(from) == '.' && code(from + 1) == '=') KDotEqual
@@ -265,6 +266,7 @@ object Tokenizer {
     case object KComma extends TokenKind
     case object KSemicolon extends TokenKind
     case object KKeyword extends TokenKind
+    case object KArrowRight extends TokenKind
     case object KArrowLeft extends TokenKind
     case object KEqual extends TokenKind
     case object KPlusEqual extends TokenKind

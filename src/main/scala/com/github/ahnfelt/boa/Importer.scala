@@ -23,7 +23,9 @@ class Importer() {
         val code = Source.fromFile(sourceFile, "UTF-8").mkString
         val tokens = Tokenizer.tokenize(code)
         if(printTokensAndSyntax) {
-            println(tokens.map(t => t.kind + "\t" + code.substring(t.from, t.to)).mkString("\n"))
+            println(tokens.zipWithIndex.map { case (t, i) =>
+                i + "\t" + t.kind + "\t" + code.substring(t.from, t.to)
+            }.mkString("\n"))
             println()
         }
         val boaFile = new Parser(tokens, flags).parseFile()

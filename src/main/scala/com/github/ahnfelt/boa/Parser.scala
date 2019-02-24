@@ -272,7 +272,7 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
     def parseTerm() : Term = parseInfix()
 
     def parseInfix() : Term = {
-        var result = parseBinary()
+        var result = parsePair()
         while(ahead(KLower, ":") || ahead(KSemicolon, KLower, ":")) {
             if(ahead(KSemicolon)) skip(KSemicolon)
             val token = skip(KLower)
@@ -280,6 +280,15 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
             result = ECall(token.at, List(), "", None, token.value, None, List(result, block), None)
         }
         result
+    }
+
+    def parsePair() : Term = {
+        val left = parseBinary()
+        if(!ahead(KArrowRight)) left else {
+            val token = skip(KArrowRight)
+            val right = parsePair()
+            ECall(token.at, List(), ":core", Some("Pair"), "of", None, List(left, right), None)
+        }
     }
 
     def parseBinary() : Term = {
@@ -392,6 +401,7 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
             Some(term)
         } else None
         skip(KPipe)
+        if(ahead(KSemicolon)) skip(KSemicolon)
         val body = parseBody()
         Case(patterns.reverse, condition, body)
     }
@@ -409,6 +419,10 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
             val token = skip(KLower)
             val (patterns, rest) = many(KRoundLeft, KRoundRight, KDotDot, Some(KComma), false) { parsePattern() }
             PConstructor(token.at, token.value, patterns, rest)
+        } else if(ahead(KRoundLeft)) {
+            val at = tokens(offset).at
+            val (patterns, rest) = many(KRoundLeft, KRoundRight, KDotDot, Some(KComma), false) { parsePattern() }
+            PConstructor(at, "of", patterns, rest)
         } else if(ahead(KLower)) {
             val token = skip(KLower)
             PVariable(token.at, Some(token.value))
