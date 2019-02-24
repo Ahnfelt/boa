@@ -407,7 +407,7 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
     }
 
     def parsePattern() : Pattern = {
-        if(ahead(KLower, KRoundLeft, KCurlyLeft)) {
+        val left = if(ahead(KLower, KRoundLeft, KCurlyLeft)) {
             val token = skip(KLower)
             skip(KRoundLeft)
             skip(KCurlyLeft)
@@ -440,6 +440,11 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
             PFloat(token.at, token.value)
         } else {
             unexpected()
+        }
+        if(!ahead(KArrowRight)) left else {
+            val token = skip(KArrowRight)
+            val right = parsePattern()
+            PConstructor(token.at, "of", List(left, right), None)
         }
     }
 

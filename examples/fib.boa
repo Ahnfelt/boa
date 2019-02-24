@@ -3,11 +3,3 @@
 #public fib(x Int) Int:
   if(x < 2): x
   else: fib(x - 1) + fib(x - 2)
-
-#public main() Unit:
-  people = Map(
-    "Elizabeth" -> "Programming",
-    "Joel" -> "Design"
-  )
-  people.each: |(name, job)|
-    Console.log("$name does $job for a living!")
