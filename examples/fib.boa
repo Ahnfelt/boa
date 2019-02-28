@@ -1,3 +1,5 @@
+#export fib, fub
+
 #import "examples/common.boa"
 
 #method fib(x Int) Int:

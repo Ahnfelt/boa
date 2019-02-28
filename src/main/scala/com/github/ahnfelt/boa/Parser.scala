@@ -71,7 +71,7 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
                 }
             }
             if(ahead(KComma)) skip(KComma)
-            else if(!ahead(KLower) && !ahead(KUpper)) fail("Expected comma between exported symbols")
+            else if(ahead(KLower) || ahead(KUpper)) fail("Expected comma between exported symbols")
         }
     }
 
