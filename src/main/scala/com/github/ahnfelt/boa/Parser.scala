@@ -5,7 +5,11 @@ import com.github.ahnfelt.boa.Tokenizer._
 
 class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(tokens) {
 
+    var exportStatement = false
+    var exportedSymbols = Map[String, Boolean]()
+
     def parseFile() : BoaFile = {
+        if(ahead("#export")) parseExport()
         var boaFile = BoaFile(List(), List(), List())
         def parseTop(include : Boolean) : Unit = {
             if(ahead(KSemicolon)) skip(KSemicolon)
@@ -13,20 +17,20 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
                 if(ahead("#import")) {
                     val parsedImport = parseImport()
                     if(include) boaFile = boaFile.copy(imports = parsedImport :: boaFile.imports)
-                } else if(ahead("#public") || ahead("#protected") || ahead("#private")) {
-                    if(ahead(KKeyword, KLower) || ahead(KKeyword, KOperator) || ahead(KKeyword, KUpper, KDot)) {
-                        val method = parseMethod(false)
-                        if(include) boaFile = boaFile.copy(methods = method :: boaFile.methods)
-                    } else {
-                        val typeDefinition = parseTypeDefinition(false)
-                        val methods = methodsForTypeDefinition(typeDefinition)
-                        if(include) boaFile = boaFile.copy(
-                            methods = methods.reverse ++ boaFile.methods,
-                            typeDefinitions = typeDefinition :: boaFile.typeDefinitions
-                        )
-                    }
+                } else if(ahead("#method")) {
+                    val method = parseMethod(false)
+                    if(include) boaFile = boaFile.copy(methods = method :: boaFile.methods)
+                } else if(ahead("#type")) {
+                    val typeDefinition = parseTypeDefinition(false)
+                    val methods = methodsForTypeDefinition(typeDefinition)
+                    if(include) boaFile = boaFile.copy(
+                        methods = methods.reverse ++ boaFile.methods,
+                        typeDefinitions = typeDefinition :: boaFile.typeDefinitions
+                    )
                 } else if(ahead("#if")) {
                     parseStaticIf(parseTop)
+                } else if(ahead("#export")) {
+                    fail("#export must be the first statement in the file")
                 } else {
                     return
                 }
@@ -35,11 +39,50 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
         }
         parseTop(true)
         if(offset < tokens.length) unexpected()
-        boaFile.copy(
+        val result = boaFile.copy(
             imports = boaFile.imports.reverse,
             typeDefinitions = boaFile.typeDefinitions.reverse,
             methods = boaFile.methods.reverse
         )
+        checkExports(result)
+        result
+    }
+
+    private def parseExport() : Unit = {
+        skip("#export")
+        exportStatement = true
+        while(ahead(KLower) || ahead(KUpper)) {
+            if(ahead(KLower)) {
+                val symbol = skip(KLower).value
+                exportedSymbols = exportedSymbols.updated(symbol, true)
+            } else if(ahead(KUpper)) {
+                val symbol = skip(KUpper).value
+                if(ahead(KDot)) {
+                    skip(KDot)
+                    val method = skip(KLower).value
+                    exportedSymbols = exportedSymbols.updated(symbol + "." + method, true)
+                } else {
+                    val public = if(!ahead(KCurlyLeft)) true else {
+                        skip(KCurlyLeft)
+                        skip(KCurlyRight)
+                        false
+                    }
+                    exportedSymbols = exportedSymbols.updated(symbol, public)
+                }
+            }
+            if(ahead(KComma)) skip(KComma)
+            else if(!ahead(KLower) && !ahead(KUpper)) fail("Expected comma between exported symbols")
+        }
+    }
+
+    private def checkExports(boaFile : BoaFile) = if(exportStatement) {
+        val allMethods = boaFile.methods.map(_.header).map(h => h.static.map(_ + ".").getOrElse("") + h.name).toSet
+        val allTypeDefinitions = boaFile.typeDefinitions.map(_.name).toSet
+        for(symbol <- exportedSymbols.keys.toList.sorted) {
+            if(!allMethods(symbol) && !allTypeDefinitions(symbol)) {
+                fail("Exported symbol not found: " + symbol)
+            }
+        }
     }
 
     private def parseStaticIf(parse : Boolean => Unit) : Unit = {
@@ -122,14 +165,15 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
     }
 
     def parseMethod(local : Boolean) : Method = {
-        val public = ahead("#public")
-        val at = if(local) skip("#local").at else if(public) skip("#public").at else skip("#private").at
+        val at = skip("#method").at
         val static = if(!ahead(KUpper)) None else Some {
             val s = skip(KUpper).value
             skip(KDot)
             s
         }
         val name = if(ahead(KOperator)) skip(KOperator).value else skip(KLower).value
+        val public = !exportStatement ||
+            static.map(s => exportedSymbols.contains(s + "." + name)).getOrElse(exportedSymbols.contains(name))
         val (typeParameters, None) = if(!ahead(KSquareLeft)) List() -> None else
             many(KSquareLeft, KSquareRight, KDotDot, Some(KComma), false) { skip(KUpper).value }
         val (parameters, rest) =
@@ -153,12 +197,10 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
     }
 
     def parseTypeDefinition(local : Boolean) : TypeDefinition = {
-        val (at, publicType, publicConstructors) =
-            if(local) { (skip("#local").at, false, false) }
-            else if(ahead("#public")) { (skip("#public").at, true, true) }
-            else if(ahead("#protected")) { (skip("#protected").at, true, false) }
-            else { (skip("#private").at, false, false) }
+        val at = skip("#type").at
         val name = skip(KUpper).value
+        val publicType = !exportStatement || exportedSymbols.contains(name)
+        val publicConstructors = !exportStatement || exportedSymbols.get(name).contains(true)
         val (typeParameters, None) = if(!ahead(KSquareLeft)) List() -> None else
             many(KSquareLeft, KSquareRight, KDotDot, Some(KComma), false) { skip(KUpper).value }
         val isRecord = ahead(KRoundLeft)

@@ -1,9 +1,9 @@
-#public Float:
-#public Point(x Float, y Float)
+#type Float:
+#type Point(x Float, y Float)
 
-#public sqrt(n Float) Float: n
-#public *(a Float, b Float) Float: a
+#method sqrt(n Float) Float: n
+#method *(a Float, b Float) Float: a
 
-#public magnitude(p Point) Float: sqrt(p.x * p.y)
+#method magnitude(p Point) Float: sqrt(p.x * p.y)
 
-#public zero() Point: Point(0, 0)
+#method zero() Point: Point(0, 0)

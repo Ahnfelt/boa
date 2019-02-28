@@ -1,4 +1,4 @@
-#public binarySearch(array Array[String], value String) Int:
+#method binarySearch(array Array[String], value String) Int:
   #mutable low = 0, high = array.size
   while{low < high}:
     mid = (low + high) / 2

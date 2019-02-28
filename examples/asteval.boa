@@ -1,11 +1,11 @@
 #import "examples/common.boa"
 
-#protected Term:
+#type Term:
   value(number Int)
   add(left Term, right Term)
   subtract(left Term, right Term)
 
-#public eval(term Term) Int:
+#method eval(term Term) Int:
   |value(v)| v
   |add(x, y)| eval(x) + eval(y)
   |subtract(x, y)| x.eval - y.eval
