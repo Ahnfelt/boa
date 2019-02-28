@@ -133,7 +133,7 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
                 rest = c.rest,
                 returnType = theType
             ),
-            body = List(SProvided(c.at))
+            body = List(SMagic(c.at, "constructor"))
         ))
         val fields = typeDefinition.constructors match {
             case List(c) if typeDefinition.isRecord =>
@@ -150,7 +150,7 @@ class Parser(tokens : Array[Token], flags : Set[String]) extends AbstractParser(
                         rest = None,
                         returnType = p.parameterType
                     ),
-                    body = List(SProvided(p.at))
+                    body = List(SMagic(p.at, "field"))
                 ))
             case _ => List()
         }

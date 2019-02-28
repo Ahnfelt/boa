@@ -95,7 +95,7 @@ class Resolver(fullUrl : String, imports : Map[String, BoaFile]) {
 
     def resolveStatement(statement : Statement, symbols : Symbols) : Statement = {
         statement match {
-            case _ : SProvided => statement
+            case _ : SMagic => statement
             case _ : SImport => statement
             case SMethod(method) => SMethod(resolveMethodDefinition(method, symbols))
             case STypeDefinition(definition) => STypeDefinition(resolveTypeDefinition(definition, symbols))

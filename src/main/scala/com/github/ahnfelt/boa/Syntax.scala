@@ -56,7 +56,7 @@ object Syntax {
     case class Type(at : At, url : String, name : String, typeArguments : List[Type])
 
     sealed abstract class Statement extends Located
-    case class SProvided(at : At) extends Statement
+    case class SMagic(at : At, spell : String) extends Statement
     case class SImport(importStatement : Import) extends Statement { def at = importStatement.at }
     case class SMethod(method : Method) extends Statement { def at = method.header.at }
     case class STypeDefinition(definition : TypeDefinition) extends Statement { def at = definition.at }
